@@ -1,0 +1,106 @@
+#cloud-config
+users:
+  - name: debian
+    ssh-authorized-keys:
+      - ssh-ed25519 YOUR_SSH_PRIV_KEY
+    sudo: ['ALL=(ALL) NOPASSWD: ALL']
+    groups: [ sudo, docker ]
+    shell: /bin/bash
+write_files:
+  - path: /etc/ssh/sshd_config
+    content: |
+         Port 43453
+         Protocol 2
+         HostKey /etc/ssh/ssh_host_rsa_key
+         HostKey /etc/ssh/ssh_host_dsa_key
+         HostKey /etc/ssh/ssh_host_ecdsa_key
+         HostKey /etc/ssh/ssh_host_ed25519_key
+         UsePrivilegeSeparation yes
+         KeyRegenerationInterval 3600
+         ServerKeyBits 1024
+         SyslogFacility AUTH
+         LogLevel INFO
+         LoginGraceTime 120
+         PermitRootLogin no
+         StrictModes yes
+         RSAAuthentication yes
+         PubkeyAuthentication yes
+         IgnoreRhosts yes
+         RhostsRSAAuthentication no
+         HostbasedAuthentication no
+         PermitEmptyPasswords no
+         ChallengeResponseAuthentication no
+         X11Forwarding yes
+         X11DisplayOffset 10
+         PrintMotd no
+         PrintLastLog yes
+         TCPKeepAlive yes
+         AcceptEnv LANG LC_*
+         Subsystem sftp /usr/lib/openssh/sftp-server
+         UsePAM yes
+         AllowUsers debian
+  - path: /etc/profile.d/my_vars.sh
+    permissions: '0644'
+    content: |
+         export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64/
+         export ARTIFACTORY_ADDR=165.22.125.17
+  - path: /root/docker_pass.txt
+    permissions: '0600'
+    content: |
+         ${DOCKERHUB_TOKEN}
+  - path: /root/.ssh/config
+    permissions: '0600'
+    content: |
+         #Bitbucket
+         Host bitbucket
+             HostName bitbucket.org
+             User git
+             IdentityFile /root/.ssh/id_rsa
+             StrictHostKeyChecking no
+
+         #GitHub
+         Host github
+             HostName github.com
+             User git
+             IdentityFile /root/.ssh/id_rsa
+             StrictHostKeyChecking no
+
+  - path: /root/.ssh/known_hosts
+    permissions: '0600'
+    content: |
+        |1|ChzSjywR6cGHCTRAwungRXtYl5k=|wzu7HZIPssnSxQWX761s5hqikz0= ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==
+        |1|r/5VNaF3uoYJgrXpRL2tZ2HSmoQ=|xEU7dw893Ia8Ed/gy+3HGO427KY= ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==
+
+runcmd:
+  - systemctl stop apt-daily-upgrade.timer apt-daily.timer
+  - kill -9 $(ps -ef | grep apt | awk '{print $2;}')
+  - apt update
+  - apt install -y htop apt-transport-https ca-certificates curl gnupg2 software-properties-common git openjdk-11-jdk xfsprogs
+  - curl -sSL https://repos.insights.digitalocean.com/install.sh | bash
+  - curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+  - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+  - apt update
+  - apt install -y docker-ce
+  - curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/bin/docker-compose
+  - chmod +x /usr/bin/docker-compose
+  - cat /root/docker_pass.txt | docker login --username YOUR_DOCKERHUB_TOKEN --password-stdin
+  - apt upgrade -y
+  - systemctl enable docker.service
+  - systemctl start docker.service
+  - cd /tmp && wget https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz
+  - cd /tmp && tar -C /usr/local/bin -zxf doctl-${DOCTL_VERSION}-linux-amd64.tar.gz
+#  - mkdir -p /mnt/storage
+#  - umount /mnt/*
+#  - mkfs.xfs -f /dev/sda
+#  - echo "/dev/sda /mnt/storage    xfs     defaults,nofail,discard,noatime 0 2" >> /etc/fstab
+#  - mount -a
+#  - mkdir -p /opt/storage/gocd/data
+#  - docker run --restart always -d --name gocd-server-20.4.0 -p 8153:8153 --volume /opt/storage/gocd/data:/godata  gocd/gocd-server:v20.4.0
+  - systemctl reboot
+
+#cloud-config
+# power_state:
+#   timeout: 120
+#   delay: "+5"
+#   message: Rebooting in five minutes. Please save your work.
+#   mode: reboot

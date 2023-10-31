@@ -1,0 +1,35 @@
+FROM ghcr.io/runatlantis/atlantis:v0.21.0
+
+RUN apk add --no-cache \
+        python3 \
+        py3-pip \
+    && pip3 install --upgrade pip \
+    && pip3 install --no-cache-dir \
+        awscli \
+    && rm -rf /var/cache/apk/*
+
+RUN aws --version   # Just to make sure its installed alright
+
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["server"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#atlantis server \
+#--atlantis-url="$URL" \
+#--gitlab-user="$USERNAME" \
+#--gitlab-token="$TOKEN" \
+#--gitlab-webhook-secret="$SECRET" \
+#--repo-allowlist="$REPO_ALLOWLIST"

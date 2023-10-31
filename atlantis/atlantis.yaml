@@ -1,0 +1,38 @@
+
+version: 3
+automerge: true
+delete_source_branch_on_merge: true
+parallel_plan: true
+parallel_apply: true
+
+projects:
+  - name: cloudflare-r2
+    branch: /main/
+    dir: "./terraform"
+    workspace: default
+    terraform_version: v1.3.6
+    delete_source_branch_on_merge: true
+    # repo_locking: true
+    autoplan:
+      when_modified: ["**/*", "**/*.*", "../files/subfolder/*.*", "../files/*.*", "../files/gen_files/*.*"]
+      enabled: true
+    apply_requirements: [mergeable, approved]
+    workflow: cloudflare-r2 #this workflow is defined in the repos.yaml loaded in the Atlantis server.
+
+#workflows:
+#  cloudflare-r2:
+#    plan:
+#      steps:
+##        - run: my-custom-command arg1 arg2
+#        - init
+#        - plan:
+#            extra_args: ["-lock", "false"]
+#        - run: my-custom-command arg1 arg2
+#    apply:
+#      steps:
+#        - run: echo hi
+#        - apply
+#        -
+##allowed_regexp_prefixes:
+##  - dev/
+##  - staging/

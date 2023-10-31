@@ -1,0 +1,68 @@
+version: '3.7'
+#networks:
+#  gitlab:
+#    name: gitlab
+
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    hostname: 'localhost'
+    container_name: gitlab-ce
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost'
+    ports:
+      - '8080:80'
+      - '8443:443'
+    volumes:
+      - '$GITLAB_HOME/config:/etc/gitlab'
+      - '$GITLAB_HOME/logs:/var/log/gitlab'
+      - '$GITLAB_HOME/data:/var/opt/gitlab'
+#    networks:
+#      - gitlab
+  gitlab-runner:
+    image: gitlab/gitlab-runner:alpine
+    container_name: gitlab-runner
+    restart: always
+    depends_on:
+      - gitlab
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - '$GITLAB_HOME/gitlab-runner:/etc/gitlab-runner'
+#    networks:
+#      - gitlab
+
+  atlantis:
+    depends_on:
+      - gitlab
+    #    build:
+    #      context: ./
+    #      dockerfile: Dockerfile
+    ports:
+      - "4141:4141"
+    image: "ghcr.io/runatlantis/atlantis:v0.21.0"
+    command:
+      - server
+      - --ssl-cert-file="/etc/ssl/certs/my-cert.crt"
+      - --ssl-key-file="/etc/ssl/private/my-cert.key"
+      - --atlantis-url="http://localhost:4141"
+      - --gitlab-hostname=gitlab
+      - --gitlab-webhook-secret="12345"
+      - --gitlab-user="root"
+      - --gitlab-token="glpat-EC6Stbc3DnxsAPhnXw_y"
+      - --repo-allowlist='*'
+      - --repo-config=/config/repos.yaml
+      - --repo-config=/config/repos.yaml
+#      - --redis-tls-enabled=false
+#      - --redis-insecure-skip-verify=true
+    #    environment:
+    #      ATLANTIS_GH_USER: root
+    #      ATLANTIS_GH_TOKEN: glpat-rCrLg1xxbz78EyJsNHws
+    #      ATLANTIS_GITLAB_URL: http://gitlab:8080
+    volumes:
+      - $PWD/config/:/config/
+#    networks:
+#      - gitlab
+
+#Error: initializing server: parsing URL "https://\"gitlab:8080\"": parse "https://\"gitlab:8080\"": invalid port ":8080\"" after host
